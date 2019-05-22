@@ -1,6 +1,7 @@
 <?php
 
 use \ready2order\ready2orderAPI;
+use ready2order\ready2orderErrorException;
 
 class ProductInfoTest extends PHPUnit_Framework_TestCase
 {
@@ -42,7 +43,9 @@ class ProductInfoTest extends PHPUnit_Framework_TestCase
                     "productgroup_id" => $productGroup["productgroup_id"]
                 )
         ));
-
+        $fetchedProduct = $ready2order->get("products/{$product["product_id"]}");
+        $this->assertEquals($product["product_id"],$fetchedProduct["product_id"]);
+        $this->assertEquals($product["product_price"],$fetchedProduct["product_price"]);
 
         $this->assertArrayHasKey("product_name",$product);
 
@@ -67,12 +70,20 @@ class ProductInfoTest extends PHPUnit_Framework_TestCase
 
         // UPDATE PRODUCT
         // TEST FOR BAD VALUES
-        $product = $ready2order->post("products/{$product["product_id"]}",array("product_price"=>"bad price", "product_vat"=>"bad value","product_stock_enabled"=>5, "product_stock_value" => "bad value"));
-        $this->assertArrayHasKey("product_name",$product);
-        $this->assertEquals($testValues["product_price"],$product["product_price"]);
-        $this->assertEquals($testValues["product_vat"],$product["product_vat"]);
-        $this->assertEquals($testValues["product_stock_value"],$product["product_stock_value"]);
-        $this->assertEquals($testValues["product_stock_enabled"],$product["product_stock_enabled"]);
+        $exceptionThrown = false;
+        try {
+            $product = $ready2order->post("products/{$product["product_id"]}", array("product_price" => "bad price", "product_vat" => "bad value", "product_stock_enabled" => 5, "product_stock_value" => "bad value"));
+        } catch (ready2orderErrorException $e){
+            $errorBag = $e->getData()["details"]["errors"];
+            $this->assertArrayHasKey("product_price", $errorBag);
+            $this->assertArrayHasKey("product_vat", $errorBag);
+            $this->assertArrayHasKey("product_stock_enabled", $errorBag);
+            $this->assertArrayHasKey("product_stock_value", $errorBag);
+
+            $exceptionThrown = true;
+        }
+
+        $this->assertTrue($exceptionThrown);
 
         // TESTING AGAIN GOOD VALUES
         $product = $ready2order->post("products/{$product["product_id"]}",array("product_description"=>$testValues["product_description"],"product_itemnumber"=>$testValues["product_itemnumber"],"product_barcode"=>$testValues["product_barcode"]));
