@@ -1,27 +1,34 @@
 {
-    "name": "duxthefux/ready2order-php-api-v1",
+    "name": "ready2order/ready2order-php-api-v1",
     "description": "PHP library for ready2order POS API v1",
     "license": "MIT",
-    "version" : "1.0.6",
+    "version" : "1.1",
     "require": {
-        "php": ">=5.5"
+        "php": ">=7.4",
+        "ext-curl" : "*",
+        "guzzlehttp/guzzle": "^7.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "4.0.*",
-        "vlucas/phpdotenv": "^2.0"
+        "phpunit/phpunit": "9.0.*",
+        "vlucas/phpdotenv": "^5.0",
+        "symfony/var-dumper": "^5.1",
+        "friendsofphp/php-cs-fixer": "^2.16"
     },
     "autoload": {
         "psr-4": {
-            "ready2order\\": "src"
+            "ready2order\\": "src",
+            "Tests\\": "tests"
         }
     },
-    "homepage": "https://github.com/duxthefux/ready2order-php-api-v1",
+    "scripts": {
+        "lint": "php-cs-fixer fix --path-mode=intersection ."
+    },
+    "homepage": "https://github.com/ready2order/r2o-api-client-php",
     "authors": [ 
         {
-            "name": "Christopher Fuchs",
-            "email": "developer@ready2order.at",
-            "homepage": "http://www.ready2order.at/"
-
+            "name": "ready2order GmbH",
+            "email": "operations@ready2order.com",
+            "homepage": "http://www.ready2order.com"
         }
     ]
 

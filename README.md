@@ -3,73 +3,56 @@ ready2order PHP API
 
 ready2order PHP API v1 is a PHP-wrapper for simply using ready2order API [api.ready2order.com](https://api.ready2order.com)
 
-Official website: www.ready2order.com
+# Get started
+* Make sure you register as a developer first [here](https://api.ready2order.com) to obtain your "Developer Token"
+* Use the developer token you received to request access to existing accounts to obtain the "Account Token"
+* Use the "Account Token" for your API requests
 
-Documentation:
-* [Developer registration](https://api.ready2order.com)
-* [Documentation](http://docs.ready2order.apiary.io/)
 
-Please contact developer@ready2order.com to get your secret master token!
 
 Installation
 ------------
 
-You can install ready2order-php-api-v1 with composer
+You can install this package with composer
 
 ```
-composer require duxthefux/ready2order-php-api-v1
+composer require ready2order/r2o-api-client-php
 ```
 
-You will then need to:
-* run ``composer install`` to get these dependencies added to your vendor directory
-* add the autoloader to your application with this line: ``require("vendor/autoload.php")``
-
-Alternatively you can just download the ready2orderAPI.php file and include it manually:
-
-```php
-include('./ready2orderAPI.php');
-```
 
 Examples
 --------
 
-Get client data
+## Fetch account information 
 
 ```php
-use \ready2order\ready2orderAPI;
+use \ready2order\Client;
 
-$ready2orderAPI = new ready2orderAPI('user-token');
-print_r($ready2orderAPI->get('company'));
+$client = new Client('your-token');
+print_r($client->get('company'));
 ```
 
-Insert new productgroup with one product
+## Insert new product group with one product
 
 ```php
-use \ready2order\ready2orderAPI;
+use \ready2order\Client;
 
-$ready2order = new ready2orderAPI(getenv('R2O_USER_TOKEN'));
+$client = new Client('your-token');
 
-// INSERT PRODUCTGROUP
-$productGroup = $ready2order->put('productgroups',array(
-    "productgroup_name" => "PHPUnit Testproductgroup"
+// Insert a new productgroup
+$productGroup = $client->put('productgroups',array(
+    "productgroup_name" => "Soft drinks"
 ));
 $this->assertArrayHasKey("productgroup_name",$productGroup);
 
 
-// INSERT PRODUCT
-$product = $ready2order->put('products',array(
+// Insert product
+$product = $client->put('products',array(
         "product_name" => "Cupcake",
-        "product_price" => 5.2,
-        "product_vat" => 20,
+        "product_price" => "5.2",
+        "product_vat" => "20",
         "productgroup" => array(
             "productgroup_id" => $productGroup["productgroup_id"]
         )
 ));
 ```
-
-
-Thanks to Drew McLellan's drewm/mailchimp-api
---------
- * Thanks to Drew McLellan for creating drewm/mailchimp-api (https://github.com/drewm/mailchimp-api)
- * The PHP library was written by Dew McLellan and "forked" for using ready2order API because it's just super simple
- * Drew McLellan <drew.mclellan@gmail.com>
