@@ -20,7 +20,7 @@
     "autoload": {
         "psr-4": {
             "ready2order\\": "src",
-            "Tests\\": "tests"
+            "ready2order\\Tests\\": "tests"
         }
     },
     "scripts": {

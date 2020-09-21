@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests;
+namespace ready2order\Tests;
 
 use Dotenv\Dotenv;
 use PHPUnit\Framework\TestCase;
