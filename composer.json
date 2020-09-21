@@ -1,6 +1,9 @@
 {
     "name": "ready2order/r2o-api-client-php",
     "description": "PHP library for ready2order POS API v1",
+    "replace": {
+        "duxthefux/ready2order-php-api-v1" : "1.*"
+    },
     "license": "MIT",
     "version" : "1.1",
     "require": {
