@@ -16,7 +16,7 @@ use ready2order\Exceptions\ResourceNotFoundException;
 class Client
 {
     private string $apiToken;
-    private string $apiEndpoint = 'https://api.ready2order.com/v1/';
+    private string $apiEndpoint = 'https://api.ready2order.com/v1';
     private int $timeout = 10;
 
     /**
