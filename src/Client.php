@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ready2order;
+namespace ready2order\Tests;
 
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\ClientException;
@@ -31,27 +31,27 @@ class Client
 
     public function delete($method, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('delete', $method, $args, $timeout);
+        return $this->makeRequest('delete', $method, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     public function get($method, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('get', $method, $args, $timeout);
+        return $this->makeRequest('get', $method, [RequestOptions::QUERY => $args], $timeout);
     }
 
     public function patch($method, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('patch', $method, $args, $timeout);
+        return $this->makeRequest('patch', $method, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     public function post($method, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('post', $method, $args, $timeout);
+        return $this->makeRequest('post', $method, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     public function put($method, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('put', $method, $args, $timeout);
+        return $this->makeRequest('put', $method, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     public function setApiEndpoint(string $apiEndpoint): void
@@ -93,12 +93,11 @@ class Client
 
         try {
             $response = $client->request($method, $url, [
-                RequestOptions::HEADERS => [
-                    'Cache-Control' => 'no-cache',
-                    'Accept' => 'application/json',
-                ],
-                RequestOptions::FORM_PARAMS => $args,
-            ]);
+                    RequestOptions::HEADERS => [
+                        'Cache-Control' => 'no-cache',
+                        'Accept' => 'application/json',
+                    ],
+                ] + $args);
 
             $data = $this->parseJsonFromResponse($response);
 
