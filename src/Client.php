@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ready2order\Tests;
+namespace ready2order;
 
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\ClientException;
