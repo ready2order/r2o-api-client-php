@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests;
+namespace ready2order\Tests;
 
 use ready2order\Exceptions\ErrorResponseException;
 
@@ -39,7 +39,7 @@ class ProductsTest extends AbstractTestCase
             ],
         ]);
         $fetchedProduct = $client->get("products/{$product['product_id']}", [
-            'includeProductGroup' => true
+            'includeProductGroup' => true,
         ]);
         $this->assertEquals($product['product_id'], $fetchedProduct['product_id']);
         $this->assertEquals($product['product_price'], $fetchedProduct['product_price']);

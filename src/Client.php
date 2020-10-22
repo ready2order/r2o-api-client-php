@@ -18,6 +18,7 @@ class Client
     private string $apiToken;
     private string $apiEndpoint = 'https://api.ready2order.com/v1';
     private int $timeout = 10;
+    private string $language = 'en-US';
 
     /**
      * Create a new instance.
@@ -69,6 +70,11 @@ class Client
         $this->timeout = $timeout;
     }
 
+    public function setLanguage(string $language): void
+    {
+        $this->language = $language;
+    }
+
     /**
      * Performs the underlying HTTP request. Not very exciting.
      *
@@ -87,17 +93,18 @@ class Client
             'timeout' => $timeout ?? $this->timeout,
             'headers' => [
                 'Authorization' => $this->apiToken,
-                'User-Agent' => 'duxthefux/ready2order-php-api-v1 (github.com/ready2order/r2o-api-client-php)',
+                'Accept-Language' => $this->language,
+                'User-Agent' => 'ready2order/r2o-api-client-php (github.com/ready2order/r2o-api-client-php)',
             ],
         ]);
 
         try {
             $response = $client->request($method, $url, [
-                    RequestOptions::HEADERS => [
-                        'Cache-Control' => 'no-cache',
-                        'Accept' => 'application/json',
-                    ],
-                ] + $args);
+                RequestOptions::HEADERS => [
+                    'Cache-Control' => 'no-cache',
+                    'Accept' => 'application/json',
+                ],
+            ] + $args);
 
             $data = $this->parseJsonFromResponse($response);
 
