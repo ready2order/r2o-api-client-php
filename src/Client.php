@@ -62,7 +62,7 @@ class Client
      */
     public function delete($path, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('delete', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('DELETE', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     /**
@@ -80,7 +80,7 @@ class Client
      */
     public function get($path, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('get', $path, [RequestOptions::QUERY => $args], $timeout);
+        return $this->makeRequest('GET', $path, [RequestOptions::QUERY => $args], $timeout);
     }
 
     /**
@@ -98,7 +98,7 @@ class Client
      */
     public function patch($path, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('patch', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('PATCH', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     /**
@@ -116,7 +116,7 @@ class Client
      */
     public function post($path, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('post', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('POST', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     /**
@@ -134,7 +134,7 @@ class Client
      */
     public function put($path, $args = [], $timeout = 10): array
     {
-        return $this->makeRequest('put', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('PUT', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
 
     /**
