@@ -2,7 +2,7 @@
 .env
 /vendor
 composer.lock
-.php_cs.cache
+.php-cs-fixer.cache
 .phpunit.result.cache
 .claude
 CLAUDE.md
