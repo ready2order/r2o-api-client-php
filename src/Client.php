@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace ready2order;
 
 use GuzzleHttp\Client as GuzzleClient;
-use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\BadResponseException;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\RequestOptions;
 use Psr\Http\Message\ResponseInterface;
+use ready2order\Exceptions\ConnectionException;
 use ready2order\Exceptions\ErrorResponseException;
 use ready2order\Exceptions\InvalidResponseException;
 use ready2order\Exceptions\ResourceNotFoundException;
@@ -21,6 +23,8 @@ class Client
 {
     private const DEFAULT_ENDPOINT = 'https://api.ready2order.com/v1';
 
+    private const MAX_ERROR_BODY_LENGTH = 500;
+
     private string $apiToken;
     private string $apiEndpoint;
     private int $timeout = 10;
@@ -30,37 +34,32 @@ class Client
     /**
      * Create a new ready2order API client instance.
      *
-     * @param string      $apiToken    Your ready2order Account Token for API authentication
-     * @param null|string $apiEndpoint Custom API endpoint URL (defaults to production API)
+     * @param string            $apiToken    Your ready2order Account Token for API authentication
+     * @param null|string       $apiEndpoint Custom API endpoint URL (defaults to production API)
+     * @param null|GuzzleClient $httpClient  Custom HTTP client (useful for tests with a MockHandler)
      */
-    public function __construct(string $apiToken, ?string $apiEndpoint = null)
+    public function __construct(string $apiToken, ?string $apiEndpoint = null, ?GuzzleClient $httpClient = null)
     {
         $this->apiToken = $apiToken;
         $this->apiEndpoint = $apiEndpoint ?? self::DEFAULT_ENDPOINT;
-        $this->httpClient = new GuzzleClient([
-            RequestOptions::HEADERS => [
-                'Authorization' => $this->apiToken,
-                'User-Agent' => 'ready2order/r2o-api-client-php (github.com/ready2order/r2o-api-client-php)',
-                'Cache-Control' => 'no-cache',
-                'Accept' => 'application/json',
-            ],
-        ]);
+        $this->httpClient = $httpClient ?? new GuzzleClient();
     }
 
     /**
      * Make a DELETE request to the API.
      *
-     * @param string $path    API endpoint path (e.g., 'products/123')
-     * @param array  $args    Request body parameters
-     * @param int    $timeout Request timeout in seconds (overrides default)
+     * @param string   $path    API endpoint path (e.g., 'products/123')
+     * @param array    $args    Request body parameters
+     * @param null|int $timeout Request timeout in seconds (null = use the client default)
      *
+     * @throws ConnectionException       When the API could not be reached
      * @throws ErrorResponseException    When the API returns an error response
      * @throws ResourceNotFoundException When the requested resource is not found (HTTP 404)
      * @throws InvalidResponseException  When the response cannot be JSON-decoded
      *
      * @return array Decoded JSON response as associative array
      */
-    public function delete($path, $args = [], $timeout = 10): array
+    public function delete(string $path, array $args = [], ?int $timeout = null): array
     {
         return $this->makeRequest('DELETE', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
@@ -68,17 +67,18 @@ class Client
     /**
      * Make a GET request to the API.
      *
-     * @param string $path    API endpoint path (e.g., 'products')
-     * @param array  $args    Query string parameters
-     * @param int    $timeout Request timeout in seconds (overrides default)
+     * @param string   $path    API endpoint path (e.g., 'products')
+     * @param array    $args    Query string parameters
+     * @param null|int $timeout Request timeout in seconds (null = use the client default)
      *
+     * @throws ConnectionException       When the API could not be reached
      * @throws ErrorResponseException    When the API returns an error response
      * @throws ResourceNotFoundException When the requested resource is not found (HTTP 404)
      * @throws InvalidResponseException  When the response cannot be JSON-decoded
      *
      * @return array Decoded JSON response as associative array
      */
-    public function get($path, $args = [], $timeout = 10): array
+    public function get(string $path, array $args = [], ?int $timeout = null): array
     {
         return $this->makeRequest('GET', $path, [RequestOptions::QUERY => $args], $timeout);
     }
@@ -86,17 +86,18 @@ class Client
     /**
      * Make a PATCH request to the API.
      *
-     * @param string $path    API endpoint path (e.g., 'products/123')
-     * @param array  $args    Request body parameters
-     * @param int    $timeout Request timeout in seconds (overrides default)
+     * @param string   $path    API endpoint path (e.g., 'products/123')
+     * @param array    $args    Request body parameters
+     * @param null|int $timeout Request timeout in seconds (null = use the client default)
      *
+     * @throws ConnectionException       When the API could not be reached
      * @throws ErrorResponseException    When the API returns an error response
      * @throws ResourceNotFoundException When the requested resource is not found (HTTP 404)
      * @throws InvalidResponseException  When the response cannot be JSON-decoded
      *
      * @return array Decoded JSON response as associative array
      */
-    public function patch($path, $args = [], $timeout = 10): array
+    public function patch(string $path, array $args = [], ?int $timeout = null): array
     {
         return $this->makeRequest('PATCH', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
@@ -104,17 +105,18 @@ class Client
     /**
      * Make a POST request to the API.
      *
-     * @param string $path    API endpoint path (e.g., 'products')
-     * @param array  $args    Request body parameters
-     * @param int    $timeout Request timeout in seconds (overrides default)
+     * @param string   $path    API endpoint path (e.g., 'products')
+     * @param array    $args    Request body parameters
+     * @param null|int $timeout Request timeout in seconds (null = use the client default)
      *
+     * @throws ConnectionException       When the API could not be reached
      * @throws ErrorResponseException    When the API returns an error response
      * @throws ResourceNotFoundException When the requested resource is not found (HTTP 404)
      * @throws InvalidResponseException  When the response cannot be JSON-decoded
      *
      * @return array Decoded JSON response as associative array
      */
-    public function post($path, $args = [], $timeout = 10): array
+    public function post(string $path, array $args = [], ?int $timeout = null): array
     {
         return $this->makeRequest('POST', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
@@ -122,17 +124,18 @@ class Client
     /**
      * Make a PUT request to the API.
      *
-     * @param string $path    API endpoint path (e.g., 'products')
-     * @param array  $args    Request body parameters
-     * @param int    $timeout Request timeout in seconds (overrides default)
+     * @param string   $path    API endpoint path (e.g., 'products')
+     * @param array    $args    Request body parameters
+     * @param null|int $timeout Request timeout in seconds (null = use the client default)
      *
+     * @throws ConnectionException       When the API could not be reached
      * @throws ErrorResponseException    When the API returns an error response
      * @throws ResourceNotFoundException When the requested resource is not found (HTTP 404)
      * @throws InvalidResponseException  When the response cannot be JSON-decoded
      *
      * @return array Decoded JSON response as associative array
      */
-    public function put($path, $args = [], $timeout = 10): array
+    public function put(string $path, array $args = [], ?int $timeout = null): array
     {
         return $this->makeRequest('PUT', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
     }
@@ -178,11 +181,12 @@ class Client
     /**
      * Performs the underlying HTTP request.
      *
-     * @param string   $method  The HTTP verb to use: get, post, put, patch, delete
+     * @param string   $method  The HTTP verb to use: GET, POST, PUT, PATCH, DELETE
      * @param string   $path    The API endpoint path to be called
      * @param array    $args    Request options (query params or form params)
      * @param null|int $timeout Request timeout in seconds (uses default if null)
      *
+     * @throws ConnectionException       When the API could not be reached
      * @throws ErrorResponseException    When the API returns an error response
      * @throws ResourceNotFoundException When the requested resource is not found (HTTP 404)
      * @throws InvalidResponseException  When the response cannot be JSON-decoded
@@ -196,6 +200,10 @@ class Client
         $requestOptions = [
             RequestOptions::TIMEOUT => $timeout ?? $this->timeout,
             RequestOptions::HEADERS => [
+                'Authorization' => $this->apiToken,
+                'User-Agent' => 'ready2order/r2o-api-client-php (github.com/ready2order/r2o-api-client-php)',
+                'Cache-Control' => 'no-cache',
+                'Accept' => 'application/json',
                 'Accept-Language' => $this->language,
             ],
         ] + $args;
@@ -203,23 +211,27 @@ class Client
         try {
             $response = $this->httpClient->request($method, $url, $requestOptions);
 
-            $data = $this->parseJsonFromResponse($response);
-
-            return $data;
-        } catch (ClientException $exception) {
+            return $this->parseJsonFromResponse($response, $method, $path);
+        } catch (BadResponseException $exception) {
             $response = $exception->getResponse();
-            $data = $this->parseJsonFromResponse($response);
-            if (isset($data['error']) && $data['error'] === true && !empty($data['msg'])) {
-                $msg = $data['msg'];
-            } else {
-                $msg = "API Request ({$method} {$path}) gave invalid response which could not be JSON-decoded: " . $response->getBody()->getContents();
-            }
+            $body = (string) $response->getBody();
+            $data = json_decode($body, true);
+            $data = \is_array($data) ? $data : null;
 
-            if ($response->getStatusCode() == 404) {
+            $msg = ($data !== null && !empty($data['error']) && !empty($data['msg']))
+                ? (string) $data['msg']
+                : \sprintf('API Request (%s %s) gave invalid response which could not be JSON-decoded: %s', $method, $path, $this->truncateBody($body));
+
+            if ($response->getStatusCode() === 404) {
                 throw new ResourceNotFoundException($msg);
             }
 
             throw new ErrorResponseException($msg, $data, $exception);
+        } catch (ConnectException $exception) {
+            throw new ConnectionException(
+                \sprintf('Could not connect to the ready2order API (%s %s): %s', $method, $path, $exception->getMessage()),
+                $exception
+            );
         }
     }
 
@@ -227,19 +239,39 @@ class Client
      * Parse JSON from HTTP response body.
      *
      * @param ResponseInterface $response The HTTP response
+     * @param string            $method   The HTTP verb that was used
+     * @param string            $path     The API endpoint path that was called
      *
      * @throws InvalidResponseException When the response body cannot be JSON-decoded
      *
      * @return array Decoded JSON as associative array
      */
-    private function parseJsonFromResponse(ResponseInterface $response): array
+    private function parseJsonFromResponse(ResponseInterface $response, string $method, string $path): array
     {
-        $body = $response->getBody()->getContents();
+        $body = (string) $response->getBody();
         $data = json_decode($body, true);
         if (\is_array($data)) {
             return $data;
         }
 
-        throw new InvalidResponseException();
+        throw new InvalidResponseException(
+            \sprintf('API Response to %s %s could not be JSON-decoded: %s', $method, $path, $this->truncateBody($body))
+        );
+    }
+
+    /**
+     * Truncate a body for use in an exception message.
+     *
+     * @param string $body The response body
+     *
+     * @return string The body, truncated to MAX_ERROR_BODY_LENGTH characters when longer
+     */
+    private function truncateBody(string $body): string
+    {
+        if (mb_strlen($body) <= self::MAX_ERROR_BODY_LENGTH) {
+            return $body;
+        }
+
+        return mb_substr($body, 0, self::MAX_ERROR_BODY_LENGTH) . ' …';
     }
 }
