@@ -32,8 +32,9 @@ abstract class AbstractTestCase extends TestCase
     protected function getApiClient(): Client
     {
         if (isset($this->api) === false) {
-            $accountToken = $_ENV['R2O_API_TOKEN'] ?? '';
-            $endpoint = $_ENV['R2O_API_ENDPOINT'] ?? '';
+            // getenv() fallback: $_ENV is empty when php.ini variables_order lacks "E" (e.g. CI).
+            $accountToken = $_ENV['R2O_API_TOKEN'] ?? getenv('R2O_API_TOKEN') ?: '';
+            $endpoint = $_ENV['R2O_API_ENDPOINT'] ?? getenv('R2O_API_ENDPOINT') ?: '';
 
             if (empty($accountToken)) {
                 self::markTestSkipped('No R2O_API_TOKEN set; skipping live API test.');
