@@ -69,9 +69,11 @@ jobs:
         run: php .github/scripts/php74-smoke.php "$RUNNER_TEMP/consumer/vendor/autoload.php"
 
   # Hits the real API with a test-account token; creates and deletes data.
-  # Skipped for fork PRs (no secrets). Runs are serialized so they do not
-  # collide on the same account.
+  # Runs only after the static checks pass, so a commit that fails lint never
+  # touches the real account. Skipped for fork PRs (no secrets). Runs are
+  # serialized so they do not collide on the same account.
   live-api:
+    needs: checks
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     concurrency:
