@@ -39,6 +39,35 @@ jobs:
       - name: Unit tests
         run: composer test
 
+  # composer.json claims PHP >=7.4, but the dev dependencies (PHPUnit 12) need
+  # 8.3, so the test suite cannot run there. Instead install the library into a
+  # throwaway project like a consumer would (only `require` is resolved), then
+  # lint it and run a smoke test.
+  php74:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: curl, json, mbstring
+          coverage: none
+
+      - name: Lint src
+        run: find src -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Install as a consumer would
+        run: |
+          mkdir "$RUNNER_TEMP/consumer"
+          cd "$RUNNER_TEMP/consumer"
+          composer init --no-interaction --name=smoke/consumer
+          composer config repositories.lib path "$GITHUB_WORKSPACE"
+          composer require --no-interaction "ready2order/r2o-api-client-php:@dev"
+
+      - name: Smoke test
+        run: php .github/scripts/php74-smoke.php "$RUNNER_TEMP/consumer/vendor/autoload.php"
+
   # Hits the real API with a test-account token; creates and deletes data.
   # Skipped for fork PRs (no secrets). Runs are serialized so they do not
   # collide on the same account.
