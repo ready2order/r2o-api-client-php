@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace ready2order\Tests;
 
 use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\DataProvider;
 use ready2order\Exceptions\ErrorResponseException;
 
 /**
@@ -31,27 +30,26 @@ class ClientTest extends AbstractTestCase
         self::assertArrayHasKey('company_name', $company);
     }
 
-    #[DataProvider('languageDataProvider')]
-    public function testSettingLanguage(string $language): void
+    public function testSettingLanguage(): void
     {
         $client = $this->getApiClient();
-        $client->setLanguage($language);
+        $messages = [];
 
-        try {
-            $client->put('products', []);
-            self::fail('Expected ErrorResponseException');
-        } catch (ErrorResponseException $e) {
-            // Assert on the structured error, not the exact localized copy,
-            // so a reworded API message does not break the suite.
-            self::assertSame('errors.validation.failed', $e->getData()['code']);
+        foreach (['de-AT', 'en-US'] as $language) {
+            $client->setLanguage($language);
+
+            try {
+                $client->put('products', []);
+                self::fail('Expected ErrorResponseException');
+            } catch (ErrorResponseException $e) {
+                // The code is language-independent; the message must be localized.
+                self::assertSame('errors.validation.failed', $e->getData()['code']);
+                $messages[$language] = $e->getMessage();
+            }
         }
-    }
 
-    public static function languageDataProvider(): array
-    {
-        return [
-            ['de-AT'],
-            ['en-US'],
-        ];
+        // Compare across languages instead of pinning exact copy, so a reworded
+        // API message does not break the suite but a no-op setLanguage() does.
+        self::assertNotSame($messages['de-AT'], $messages['en-US']);
     }
 }

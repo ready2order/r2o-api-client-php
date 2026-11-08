@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace ready2order\Tests;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+
 /**
  * @internal
- *
- * @coversNothing
  */
+#[CoversNothing]
 class AccountTest extends AbstractTestCase
 {
     public function testGetCompanyInfo(): void

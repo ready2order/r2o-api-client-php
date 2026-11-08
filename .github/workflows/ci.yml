@@ -12,6 +12,7 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +46,7 @@ jobs:
   # lint it and run a smoke test.
   php74:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -68,12 +70,36 @@ jobs:
       - name: Smoke test
         run: php .github/scripts/php74-smoke.php "$RUNNER_TEMP/consumer/vendor/autoload.php"
 
+  # The library allows Guzzle ^7.16 || ^8.3 but `checks` resolves the newest (8.x).
+  # Pin the oldest supported 7.x and re-run the unit tests against it.
+  guzzle7:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, json, mbstring
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - run: composer require --no-interaction --with-all-dependencies "guzzlehttp/guzzle:7.16.0"
+
+      - name: Unit tests (Guzzle 7)
+        run: composer test
+
   # Hits the real API with a test-account token; creates and deletes data.
   # Runs only after the static checks pass, so a commit that fails lint never
-  # touches the real account. Skipped for fork PRs (no secrets). Runs are
-  # serialized so they do not collide on the same account.
+  # touches the real account. Skipped for fork PRs (no secrets). The concurrency
+  # group makes runs queue instead of overlapping on the same account; GitHub
+  # keeps only one pending run per group, so a newer queued run replaces an
+  # older pending one.
   live-api:
     needs: checks
+    timeout-minutes: 10
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     concurrency:
@@ -90,8 +116,9 @@ jobs:
 
       - run: composer install --no-interaction --prefer-dist
 
+      # --fail-on-skipped: an unset secret/variable must fail the job, not pass it with every test skipped.
       - name: Live API tests
-        run: composer test:api
+        run: composer test:api -- --fail-on-skipped
         env:
           R2O_API_TOKEN: ${{ secrets.R2O_API_TOKEN }}
           R2O_API_ENDPOINT: ${{ vars.R2O_API_ENDPOINT }}

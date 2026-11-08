@@ -9,6 +9,7 @@
     <testsuites>
         <testsuite name="unit"><file>./tests/ClientUnitTest.php</file></testsuite>
         <testsuite name="api">
+            <file>./tests/AccountTest.php</file>
             <file>./tests/ClientTest.php</file>
             <file>./tests/ErrorHandlingTest.php</file>
             <file>./tests/ProductsTest.php</file>

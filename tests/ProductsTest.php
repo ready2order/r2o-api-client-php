@@ -6,6 +6,7 @@ namespace ready2order\Tests;
 
 use PHPUnit\Framework\Attributes\CoversNothing;
 use ready2order\Exceptions\ErrorResponseException;
+use ready2order\Exceptions\Ready2OrderException;
 
 /**
  * @internal
@@ -26,7 +27,6 @@ class ProductsTest extends AbstractTestCase
 
         $productGroup = null;
         $product = null;
-        $cleanedUp = false;
 
         try {
             // Insert productGroup
@@ -96,22 +96,26 @@ class ProductsTest extends AbstractTestCase
 
             // Delete product
             $deleted = $client->delete("products/{$product['product_id']}");
+            $product = null;
             self::assertTrue($deleted['success']);
 
             // Delete productgroup
             $deleted = $client->delete("productgroups/{$productGroup['productgroup_id']}");
+            $productGroup = null;
             self::assertTrue($deleted['success']);
-
-            $cleanedUp = true;
         } finally {
             // Best-effort cleanup so a mid-test failure does not orphan test data.
-            if (!$cleanedUp) {
-                if ($product !== null) {
-                    $client->delete("products/{$product['product_id']}");
+            // Each resource is nulled once deleted; each delete is isolated so one
+            // failing cleanup call cannot skip the other.
+            foreach ([['products', $product, 'product_id'], ['productgroups', $productGroup, 'productgroup_id']] as [$resource, $record, $idKey]) {
+                if ($record === null) {
+                    continue;
                 }
 
-                if ($productGroup !== null) {
-                    $client->delete("productgroups/{$productGroup['productgroup_id']}");
+                try {
+                    $client->delete("{$resource}/{$record[$idKey]}");
+                } catch (Ready2OrderException $e) {
+                    // Keep the original test failure visible.
                 }
             }
         }
