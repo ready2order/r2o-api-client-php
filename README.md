@@ -46,12 +46,12 @@ $newProduct = $client->post('products', [
     'product_price' => '3.50',
 ]);
 
-// PUT - Create or replace resources
-$productGroup = $client->put('productgroups', [
-    'productgroup_name' => 'Beverages',
+// PUT - Update resources
+$updated = $client->put('products/123', [
+    'product_price' => '4.00',
 ]);
 
-// PATCH - Update resources
+// PATCH - Partially update resources
 $updated = $client->patch('products/123', [
     'product_price' => '4.00',
 ]);
@@ -139,7 +139,7 @@ try {
 }
 ```
 
-All of these extend `ready2order\Exceptions\Ready2OrderException`, so you can also handle any library failure in one place:
+All of these extend `ready2order\Exceptions\Ready2OrderException`, so you can also handle any failed API call in one place (invalid configuration, e.g. a malformed endpoint URL, still throws a plain `InvalidArgumentException`):
 
 ```php
 use ready2order\Exceptions\Ready2OrderException;
@@ -205,9 +205,17 @@ echo "Created product: " . $product['product_name'];
 - ext-mbstring
 - guzzlehttp/guzzle ^7.16 or ^8.3
 
+## Upgrading
+
+Changes compared to the previous release (breaking, so release as a new major version):
+
+- `setApiEndpoint()` is removed; pass the endpoint as the second constructor argument.
+- Failed requests no longer throw raw Guzzle exceptions. A 5xx now throws `ErrorResponseException`, a connect error, timeout or redirect loop throws `ConnectionException`, and a 4xx with a non-JSON body throws `ErrorResponseException` (with `getData() === null`) instead of `InvalidResponseException`. The Guzzle exception is available via `getPrevious()`.
+- `setTimeout()` and `setLanguage()` return `$this` instead of nothing, and `setTimeout()` is now actually applied to requests.
+
 ## Development
 
-Install dependencies with Composer, then:
+Contributors need PHP 8.3 or higher to run the tests and tooling (PHPUnit 12); the library itself supports PHP 7.4+. Install dependencies with Composer, then:
 
 ```bash
 composer test       # unit tests, mocked HTTP, no token needed
@@ -226,7 +234,8 @@ and set:
 - `R2O_API_ENDPOINT` – endpoint the tests target; `.env.example` defaults to
   the production API `https://api.ready2order.com/v1`
 
-Without a token the live tests are skipped.
+The account needs at least one existing product (`testGetProductList` does not seed data).
+Without a token the live tests are skipped; CI passes `--fail-on-skipped` so a missing secret fails the job.
 
 ## License
 

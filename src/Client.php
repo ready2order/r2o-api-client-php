@@ -203,9 +203,11 @@ class Client
      */
     private function makeRequest(string $method, string $path, array $args = [], ?int $timeout = null): array
     {
-        $url = $this->apiEndpoint . '/' . $path;
+        $url = rtrim($this->apiEndpoint, '/') . '/' . ltrim($path, '/');
 
         $requestOptions = [
+            // An injected client may have http_errors disabled; error mapping below relies on it.
+            RequestOptions::HTTP_ERRORS => true,
             RequestOptions::TIMEOUT => $timeout ?? $this->timeout,
             RequestOptions::HEADERS => [
                 'Authorization' => $this->apiToken,
@@ -223,9 +225,13 @@ class Client
             $data = json_decode($body, true);
             $data = \is_array($data) ? $data : null;
 
-            $msg = ($data !== null && !empty($data['error']) && !empty($data['msg']))
-                ? (string) $data['msg']
-                : \sprintf('API Request (%s %s) gave invalid response which could not be JSON-decoded: %s', $method, $path, $this->truncateBody($body));
+            if ($data === null) {
+                $msg = \sprintf('API Request (%s %s) gave invalid response which could not be JSON-decoded: %s', $method, $path, $this->truncateBody($body));
+            } elseif (!empty($data['error']) && !empty($data['msg'])) {
+                $msg = \is_string($data['msg']) ? $data['msg'] : (string) json_encode($data['msg']);
+            } else {
+                $msg = \sprintf('API Request (%s %s) failed with HTTP %d: %s', $method, $path, $response->getStatusCode(), $this->truncateBody($body));
+            }
 
             if ($response->getStatusCode() === 404) {
                 throw new ResourceNotFoundException($msg);

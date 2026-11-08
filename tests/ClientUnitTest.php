@@ -12,6 +12,7 @@ use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Exception\TooManyRedirectsException;
 use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Promise\FulfilledPromise;
 use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\Request;
@@ -219,6 +220,151 @@ class ClientUnitTest extends TestCase
         $client->get('company');
 
         self::assertSame('de-DE', $mock->getLastRequest()->getHeaderLine('Accept-Language'));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    #[DataProvider('verbProvider')]
+    public function testVerbSendsMethodUrlAndArgs(string $verb, string $method, bool $inQuery, array $args): void
+    {
+        $mock = new MockHandler([new Response(200, [], '{}')]);
+        [$client] = $this->clientWith($mock);
+        $client->{$verb}('products', $args);
+
+        $request = $mock->getLastRequest();
+        self::assertSame($method, $request->getMethod());
+        self::assertSame(self::ENDPOINT . '/products', (string) $request->getUri()->withQuery(''));
+        if ($inQuery) {
+            self::assertSame('a=1', $request->getUri()->getQuery());
+            self::assertSame('', (string) $request->getBody());
+        } else {
+            self::assertSame('', $request->getUri()->getQuery());
+            self::assertSame('a=1', (string) $request->getBody());
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: bool, 3: array<string, int>}>
+     */
+    public static function verbProvider(): array
+    {
+        return [
+            'get' => ['get', 'GET', true, ['a' => 1]],
+            'post' => ['post', 'POST', false, ['a' => 1]],
+            'put' => ['put', 'PUT', false, ['a' => 1]],
+            'patch' => ['patch', 'PATCH', false, ['a' => 1]],
+            'delete' => ['delete', 'DELETE', false, ['a' => 1]],
+        ];
+    }
+
+    public function testUrlJoinNormalizesSlashes(): void
+    {
+        $mock = new MockHandler([new Response(200, [], '{}'), new Response(200, [], '{}')]);
+        $client = new Client(self::TOKEN, self::ENDPOINT . '/', new GuzzleClient(['handler' => $mock]));
+
+        $uris = [];
+        foreach (['products', '/products'] as $path) {
+            $client->get($path);
+            $uris[] = (string) $mock->getLastRequest()->getUri();
+        }
+
+        self::assertSame([self::ENDPOINT . '/products', self::ENDPOINT . '/products'], $uris);
+    }
+
+    public function testDefaultAcceptLanguageIsEnUs(): void
+    {
+        $mock = new MockHandler([new Response(200, [], '{}')]);
+        [$client] = $this->clientWith($mock);
+        $client->get('company');
+
+        self::assertSame('en-US', $mock->getLastRequest()->getHeaderLine('Accept-Language'));
+    }
+
+    public function testDefaultEndpointIsProduction(): void
+    {
+        $mock = new MockHandler([new Response(200, [], '{}')]);
+        (new Client(self::TOKEN, null, new GuzzleClient(['handler' => $mock])))->get('company');
+
+        self::assertSame('https://api.ready2order.com/v1/company', (string) $mock->getLastRequest()->getUri());
+    }
+
+    public function testErrorResponsesStillThrowWhenInjectedClientDisablesHttpErrors(): void
+    {
+        $mock = new MockHandler([new Response(500, [], '{"error":true,"code":"x","msg":"Boom"}')]);
+        // The http_errors middleware lives in the default stack, a bare MockHandler would skip it.
+        $guzzle = new GuzzleClient(['handler' => HandlerStack::create($mock), 'http_errors' => false]);
+        $client = new Client(self::TOKEN, self::ENDPOINT, $guzzle);
+
+        $this->expectException(ErrorResponseException::class);
+        $client->get('products');
+    }
+
+    public function testErrorWithoutMsgReportsStatusAndBody(): void
+    {
+        $mock = new MockHandler([
+            new ClientException('', $this->request(), new Response(401, [], '{"message":"Unauthenticated"}')),
+        ]);
+        [$client] = $this->clientWith($mock);
+
+        try {
+            $client->get('products');
+            self::fail('Expected ErrorResponseException');
+        } catch (ErrorResponseException $e) {
+            self::assertStringContainsString('HTTP 401', $e->getMessage());
+            self::assertStringContainsString('Unauthenticated', $e->getMessage());
+            self::assertSame(['message' => 'Unauthenticated'], $e->getData());
+        }
+    }
+
+    public function testArrayMsgIsEncodedNotCast(): void
+    {
+        $mock = new MockHandler([
+            new ClientException('', $this->request(), new Response(400, [], '{"error":true,"msg":{"field":"bad"}}')),
+        ]);
+        [$client] = $this->clientWith($mock);
+
+        try {
+            $client->get('products');
+            self::fail('Expected ErrorResponseException');
+        } catch (ErrorResponseException $e) {
+            self::assertSame('{"field":"bad"}', $e->getMessage());
+        }
+    }
+
+    public function testNotFoundWithHtmlBodyThrowsResourceNotFoundException(): void
+    {
+        $mock = new MockHandler([
+            new ClientException('', $this->request(), new Response(404, [], '<html>nope</html>')),
+        ]);
+        [$client] = $this->clientWith($mock);
+
+        $this->expectException(ResourceNotFoundException::class);
+        $client->get('products/1');
+    }
+
+    public function testEmptySuccessBodyThrowsInvalidResponseException(): void
+    {
+        $mock = new MockHandler([new Response(200, [], '')]);
+        [$client] = $this->clientWith($mock);
+
+        $this->expectException(InvalidResponseException::class);
+        $client->get('products');
+    }
+
+    public function testLongBodiesAreTruncatedMultibyteSafe(): void
+    {
+        $mock = new MockHandler([new Response(200, [], str_repeat('ä', 600))]);
+        [$client] = $this->clientWith($mock);
+
+        try {
+            $client->get('products');
+            self::fail('Expected InvalidResponseException');
+        } catch (InvalidResponseException $e) {
+            self::assertStringContainsString(str_repeat('ä', 500) . ' …', $e->getMessage());
+            self::assertStringNotContainsString(str_repeat('ä', 501), $e->getMessage());
+            self::assertTrue(mb_check_encoding($e->getMessage(), 'UTF-8'));
+        }
     }
 
     public function testAuthorizationHeaderIsSent(): void
