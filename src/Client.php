@@ -6,7 +6,7 @@ namespace ready2order;
 
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\BadResponseException;
-use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\RequestOptions;
 use Psr\Http\Message\ResponseInterface;
 use ready2order\Exceptions\ConnectionException;
@@ -42,7 +42,15 @@ class Client
     {
         $this->apiToken = $apiToken;
         $this->apiEndpoint = $apiEndpoint ?? self::DEFAULT_ENDPOINT;
-        $this->httpClient = $httpClient ?? new GuzzleClient();
+        // Static headers live on the default client so an injected client keeps its own
+        // (e.g. a custom User-Agent). Authorization and Accept-Language are set per request.
+        $this->httpClient = $httpClient ?? new GuzzleClient([
+            RequestOptions::HEADERS => [
+                'User-Agent' => 'ready2order/r2o-api-client-php (github.com/ready2order/r2o-api-client-php)',
+                'Cache-Control' => 'no-cache',
+                'Accept' => 'application/json',
+            ],
+        ]);
     }
 
     /**
@@ -201,9 +209,6 @@ class Client
             RequestOptions::TIMEOUT => $timeout ?? $this->timeout,
             RequestOptions::HEADERS => [
                 'Authorization' => $this->apiToken,
-                'User-Agent' => 'ready2order/r2o-api-client-php (github.com/ready2order/r2o-api-client-php)',
-                'Cache-Control' => 'no-cache',
-                'Accept' => 'application/json',
                 'Accept-Language' => $this->language,
             ],
         ] + $args;
@@ -227,9 +232,11 @@ class Client
             }
 
             throw new ErrorResponseException($msg, $data, $exception);
-        } catch (ConnectException $exception) {
+        } catch (TransferException $exception) {
+            // Everything without an HTTP error response: DNS/connect failures, timeouts,
+            // connection resets, redirect loops. Must stay after BadResponseException.
             throw new ConnectionException(
-                \sprintf('Could not connect to the ready2order API (%s %s): %s', $method, $path, $exception->getMessage()),
+                \sprintf('Request to the ready2order API failed (%s %s): %s', $method, $path, $exception->getMessage()),
                 $exception
             );
         }

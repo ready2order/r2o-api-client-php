@@ -92,6 +92,17 @@ For testing or custom deployments, pass the endpoint as the second constructor p
 $client = new Client('your-token', 'https://custom-api.example.com/v1');
 ```
 
+### Custom HTTP Client
+
+Pass your own Guzzle client as the third constructor parameter (e.g. for proxies or a custom `User-Agent`):
+
+```php
+$guzzle = new \GuzzleHttp\Client(['headers' => ['User-Agent' => 'my-app/1.0']]);
+$client = new Client('your-token', null, $guzzle);
+```
+
+The default client sends a ready2order `User-Agent`, `Accept: application/json` and `Cache-Control: no-cache`; an injected client keeps its own defaults. `Authorization` and `Accept-Language` are always set by `Client`.
+
 ## Error Handling
 
 The client throws specific exceptions for different error scenarios:
@@ -123,8 +134,20 @@ try {
     // A successful response could not be JSON-decoded
     echo "Invalid response from API: " . $e->getMessage();
 } catch (ConnectionException $e) {
-    // Network failure (DNS, refused connection, timeout)
+    // Request failed without an HTTP error response (DNS, refused connection, timeout, redirect loop)
     echo "Could not reach API: " . $e->getMessage();
+}
+```
+
+All of these extend `ready2order\Exceptions\Ready2OrderException`, so you can also handle any library failure in one place:
+
+```php
+use ready2order\Exceptions\Ready2OrderException;
+
+try {
+    $client->get('products');
+} catch (Ready2OrderException $e) {
+    // ErrorResponseException, ResourceNotFoundException, InvalidResponseException or ConnectionException
 }
 ```
 

@@ -7,19 +7,24 @@ namespace ready2order\Tests;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Exception\TooManyRedirectsException;
+use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Promise\FulfilledPromise;
 use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
 use ready2order\Client;
 use ready2order\Exceptions\ConnectionException;
 use ready2order\Exceptions\ErrorResponseException;
 use ready2order\Exceptions\InvalidResponseException;
+use ready2order\Exceptions\Ready2OrderException;
 use ready2order\Exceptions\ResourceNotFoundException;
 use stdClass;
 
@@ -139,20 +144,55 @@ class ClientUnitTest extends TestCase
         }
     }
 
-    public function testConnectionFailureThrowsConnectionException(): void
+    #[DataProvider('transferFailureProvider')]
+    public function testTransferFailureThrowsConnectionException(TransferException $failure): void
     {
-        $mock = new MockHandler([
-            new ConnectException('Could not resolve host: unit.test', $this->request()),
-        ]);
+        $mock = new MockHandler([$failure]);
         [$client] = $this->clientWith($mock);
 
         try {
             $client->get('products');
             self::fail('Expected ConnectionException');
         } catch (ConnectionException $e) {
+            self::assertStringContainsString('GET products', $e->getMessage());
             self::assertStringContainsString('Could not resolve host', $e->getMessage());
-            self::assertInstanceOf(ConnectException::class, $e->getPrevious());
+            self::assertSame($failure, $e->getPrevious());
         }
+    }
+
+    /**
+     * Failures without an HTTP error response (Guzzle's TransferException family).
+     *
+     * @return array<string, array{0: TransferException}>
+     */
+    public static function transferFailureProvider(): array
+    {
+        $request = new Request('GET', self::ENDPOINT . '/products');
+
+        return [
+            'connect failure' => [new ConnectException('Could not resolve host: unit.test', $request)],
+            'request failure without response' => [new RequestException('Could not resolve host: unit.test', $request)],
+            'redirect loop' => [new TooManyRedirectsException('Could not resolve host: unit.test', $request, new Response(302))],
+        ];
+    }
+
+    #[DataProvider('libraryExceptionProvider')]
+    public function testLibraryExceptionsShareBaseClass(string $class): void
+    {
+        self::assertTrue(is_subclass_of($class, Ready2OrderException::class));
+    }
+
+    /**
+     * @return array<string, array{0: class-string}>
+     */
+    public static function libraryExceptionProvider(): array
+    {
+        return [
+            'connection' => [ConnectionException::class],
+            'error response' => [ErrorResponseException::class],
+            'invalid response' => [InvalidResponseException::class],
+            'not found' => [ResourceNotFoundException::class],
+        ];
     }
 
     public function testNonJsonSuccessThrowsInvalidResponseException(): void
@@ -187,6 +227,16 @@ class ClientUnitTest extends TestCase
         [$client] = $this->clientWith($mock);
         $client->get('company');
 
+        self::assertSame(self::TOKEN, $mock->getLastRequest()->getHeaderLine('Authorization'));
+    }
+
+    public function testInjectedClientKeepsItsOwnDefaultHeaders(): void
+    {
+        $mock = new MockHandler([new Response(200, [], '{}')]);
+        $guzzle = new GuzzleClient(['handler' => $mock, 'headers' => ['User-Agent' => 'custom-agent/1.0']]);
+        (new Client(self::TOKEN, self::ENDPOINT, $guzzle))->get('company');
+
+        self::assertSame('custom-agent/1.0', $mock->getLastRequest()->getHeaderLine('User-Agent'));
         self::assertSame(self::TOKEN, $mock->getLastRequest()->getHeaderLine('Authorization'));
     }
 
