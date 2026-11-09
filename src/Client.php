@@ -69,7 +69,7 @@ class Client
      */
     public function delete(string $path, array $args = [], ?int $timeout = null): array
     {
-        return $this->makeRequest('DELETE', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('DELETE', $path, [RequestOptions::JSON => $args], $timeout);
     }
 
     /**
@@ -107,7 +107,7 @@ class Client
      */
     public function patch(string $path, array $args = [], ?int $timeout = null): array
     {
-        return $this->makeRequest('PATCH', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('PATCH', $path, [RequestOptions::JSON => $args], $timeout);
     }
 
     /**
@@ -126,7 +126,7 @@ class Client
      */
     public function post(string $path, array $args = [], ?int $timeout = null): array
     {
-        return $this->makeRequest('POST', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('POST', $path, [RequestOptions::JSON => $args], $timeout);
     }
 
     /**
@@ -145,7 +145,7 @@ class Client
      */
     public function put(string $path, array $args = [], ?int $timeout = null): array
     {
-        return $this->makeRequest('PUT', $path, [RequestOptions::FORM_PARAMS => $args], $timeout);
+        return $this->makeRequest('PUT', $path, [RequestOptions::JSON => $args], $timeout);
     }
 
     /**
@@ -191,7 +191,7 @@ class Client
      *
      * @param string   $method  The HTTP verb to use: GET, POST, PUT, PATCH, DELETE
      * @param string   $path    The API endpoint path to be called
-     * @param array    $args    Request options (query params or form params)
+     * @param array    $args    Request options (query params or JSON body)
      * @param null|int $timeout Request timeout in seconds (uses default if null)
      *
      * @throws ConnectionException       When the API could not be reached

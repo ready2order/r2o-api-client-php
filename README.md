@@ -211,6 +211,7 @@ Changes compared to the previous release (breaking, so release as a new major ve
 
 - `setApiEndpoint()` is removed; pass the endpoint as the second constructor argument.
 - Failed requests no longer throw raw Guzzle exceptions. A 5xx now throws `ErrorResponseException`, a connect error, timeout or redirect loop throws `ConnectionException`, and a 4xx with a non-JSON body throws `ErrorResponseException` (with `getData() === null`) instead of `InvalidResponseException`. The Guzzle exception is available via `getPrevious()`.
+- Request bodies of POST, PUT, PATCH and DELETE are sent as JSON (`Content-Type: application/json`) instead of form data.
 - `setTimeout()` and `setLanguage()` return `$this` instead of nothing, and `setTimeout()` is now actually applied to requests.
 
 ## Development

@@ -240,7 +240,8 @@ class ClientUnitTest extends TestCase
             self::assertSame('', (string) $request->getBody());
         } else {
             self::assertSame('', $request->getUri()->getQuery());
-            self::assertSame('a=1', (string) $request->getBody());
+            self::assertSame('{"a":1}', (string) $request->getBody());
+            self::assertSame('application/json', $request->getHeaderLine('Content-Type'));
         }
     }
 
