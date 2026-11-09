@@ -203,7 +203,9 @@ class Client
      */
     private function makeRequest(string $method, string $path, array $args = [], ?int $timeout = null): array
     {
-        $url = rtrim($this->apiEndpoint, '/') . '/' . ltrim($path, '/');
+        // preg_replace, not (r|l)trim: php-cs-fixer's mb_str_functions rewrites those to
+        // mb_rtrim/mb_ltrim when run on PHP 8.4+, which do not exist on the supported 7.4.
+        $url = preg_replace('~/+$~', '', $this->apiEndpoint) . '/' . preg_replace('~^/+~', '', $path);
 
         $requestOptions = [
             // An injected client may have http_errors disabled; error mapping below relies on it.
