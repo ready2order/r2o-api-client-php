@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace ready2order\Tests;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use ready2order\Exceptions\ErrorResponseException;
 use ready2order\Exceptions\ResourceNotFoundException;
 
 /**
  * @internal
- *
- * @coversNothing
  */
+#[CoversNothing]
 class ErrorHandlingTest extends AbstractTestCase
 {
     public function testPutRequestWithoutPayload(): void
@@ -33,38 +34,21 @@ class ErrorHandlingTest extends AbstractTestCase
         self::assertTrue($exceptionThrown);
     }
 
-    /**
-     * @dataProvider getHttpMethods
-     */
+    #[DataProvider('getHttpMethods')]
     public function testCallInvalidEndpoint(string $method): void
     {
-        $method = mb_strtolower($method);
-        $exceptionThrown = false;
-
         self::expectException(ResourceNotFoundException::class);
         $this->getApiClient()->{$method}('invalid-endpoint');
-
-        self::assertTrue($exceptionThrown);
     }
 
-    public function getHttpMethods(): array
+    public static function getHttpMethods(): array
     {
         return [
-            [
-                'GET',
-            ],
-            [
-                'POST',
-            ],
-            [
-                'PUT',
-            ],
-            [
-                'PATCH',
-            ],
-            [
-                'DELETE',
-            ],
+            ['get'],
+            ['post'],
+            ['put'],
+            ['patch'],
+            ['delete'],
         ];
     }
 }

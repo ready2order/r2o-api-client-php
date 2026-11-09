@@ -4,32 +4,15 @@ declare(strict_types=1);
 
 namespace ready2order\Tests;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+use ready2order\Exceptions\ErrorResponseException;
+
 /**
  * @internal
- *
- * @coversNothing
  */
+#[CoversNothing]
 class ClientTest extends AbstractTestCase
 {
-    public function testSettingTimeout(): void
-    {
-        $client = $this->getApiClient();
-        $client->setTimeout(5);
-
-        self::assertSame(5, $client->getTimeout());
-    }
-
-    public function testFluentInterface(): void
-    {
-        $client = $this->getApiClient();
-
-        $result = $client->setTimeout(30);
-        self::assertSame($client, $result, 'setTimeout should return $this');
-
-        $result = $client->setLanguage('de-DE');
-        self::assertSame($client, $result, 'setLanguage should return $this');
-    }
-
     public function testFluentInterfaceChaining(): void
     {
         $client = $this->getApiClient();
@@ -43,57 +26,30 @@ class ClientTest extends AbstractTestCase
         self::assertSame(15, $client->getTimeout());
 
         // Verify the client still works after chaining
-        $company = $client->get('company');
-        self::assertArrayHasKey('company_name', $company);
+        // Must not throw. Uses `products` since `company` is not public.
+        $client->get('products');
     }
 
-    public function testPerRequestTimeoutOverridesDefault(): void
+    public function testSettingLanguage(): void
     {
         $client = $this->getApiClient();
-        $client->setTimeout(5);
+        $messages = [];
 
-        // Default timeout is 5, but per-request timeout of 30 should work
-        $company = $client->get('company', [], 30);
-        self::assertArrayHasKey('company_name', $company);
+        foreach (['de-AT', 'en-US'] as $language) {
+            $client->setLanguage($language);
 
-        // Verify default timeout wasn't changed
-        self::assertSame(5, $client->getTimeout());
-    }
+            try {
+                $client->put('products', []);
+                self::fail('Expected ErrorResponseException');
+            } catch (ErrorResponseException $e) {
+                // The code is language-independent; the message must be localized.
+                self::assertSame('errors.validation.failed', $e->getData()['code']);
+                $messages[$language] = $e->getMessage();
+            }
+        }
 
-    /**
-     * @dataProvider languageDataProvider
-     *
-     * @param mixed $expectedError
-     */
-    public function testSettingLanguage(string $language, $expectedError): void
-    {
-        $client = $this->getApiClient();
-        $client->setLanguage($language);
-        self::expectExceptionMessage($expectedError);
-        $client->put('products', []);
-    }
-
-    public function languageDataProvider()
-    {
-        return [
-            [
-                'de-AT',
-                <<<'EOT'
-                product name muss ausgefüllt sein.
-                product price muss ausgefüllt sein.
-                product vat muss angegeben werden, wenn product vat id nicht ausgefüllt wurde.
-                product vat id muss angegeben werden, wenn product vat nicht ausgefüllt wurde.
-                EOT,
-            ],
-            [
-                'en-US',
-                <<<'EOT'
-                The product name field is required.
-                The product price field is required.
-                The product vat field is required when product vat id is not present.
-                The product vat id field is required when product vat is not present.
-                EOT,
-            ],
-        ];
+        // Compare across languages instead of pinning exact copy, so a reworded
+        // API message does not break the suite but a no-op setLanguage() does.
+        self::assertNotSame($messages['de-AT'], $messages['en-US']);
     }
 }

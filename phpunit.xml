@@ -7,8 +7,11 @@
          processIsolation="false"
          stopOnFailure="false">
     <testsuites>
-        <testsuite name="ready2order API Test suite">
-            <directory suffix="Test.php">./tests/</directory>
+        <testsuite name="unit"><file>./tests/ClientUnitTest.php</file></testsuite>
+        <testsuite name="api">
+            <file>./tests/ClientTest.php</file>
+            <file>./tests/ErrorHandlingTest.php</file>
+            <file>./tests/ProductsTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>

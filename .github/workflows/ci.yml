@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, json, mbstring
+          coverage: none
+
+      - run: composer validate --strict
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - name: Code style
+        run: composer lint:check
+
+      - name: Static analysis
+        run: composer analyse
+
+      # Unit tests use mocked HTTP; no network or token needed.
+      - name: Unit tests
+        run: composer test
+
+  # composer.json claims PHP >=7.4, but the dev dependencies (PHPUnit 12) need
+  # 8.3, so the test suite cannot run there. Instead install the library into a
+  # throwaway project like a consumer would (only `require` is resolved), then
+  # lint it and run a smoke test.
+  php74:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: curl, json, mbstring
+          coverage: none
+
+      - name: Lint src
+        run: find src -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Install as a consumer would
+        run: |
+          mkdir "$RUNNER_TEMP/consumer"
+          cd "$RUNNER_TEMP/consumer"
+          composer init --no-interaction --name=smoke/consumer
+          composer config repositories.lib path "$GITHUB_WORKSPACE"
+          composer require --no-interaction "ready2order/r2o-api-client-php:@dev"
+
+      - name: Smoke test
+        run: php .github/scripts/php74-smoke.php "$RUNNER_TEMP/consumer/vendor/autoload.php"
+
+  # The library allows Guzzle ^7.16 || ^8.3 but `checks` resolves the newest (8.x).
+  # Pin the oldest supported 7.x and re-run the unit tests against it.
+  guzzle7:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, json, mbstring
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - run: composer require --no-interaction --with-all-dependencies "guzzlehttp/guzzle:7.16.0"
+
+      - name: Unit tests (Guzzle 7)
+        run: composer test
+
+  # Hits the real API with a test-account token; creates and deletes data.
+  # Runs only after the static checks pass, so a commit that fails lint never
+  # touches the real account. Skipped for fork PRs (no secrets). The concurrency
+  # group makes runs queue instead of overlapping on the same account; GitHub
+  # keeps only one pending run per group, so a newer queued run replaces an
+  # older pending one.
+  live-api:
+    needs: checks
+    timeout-minutes: 10
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    concurrency:
+      group: live-api
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, json, mbstring
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      # --fail-on-skipped: an unset secret/variable must fail the job, not pass it with every test skipped.
+      - name: Live API tests
+        run: composer test:api -- --fail-on-skipped
+        env:
+          R2O_API_TOKEN: ${{ secrets.R2O_API_TOKEN }}
+          R2O_API_ENDPOINT: ${{ vars.R2O_API_ENDPOINT }}

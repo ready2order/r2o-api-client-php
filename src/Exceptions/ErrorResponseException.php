@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ready2order\Exceptions;
 
-use Exception;
 use Throwable;
 
 /**
@@ -14,7 +13,7 @@ use Throwable;
  * Use getData() to access the full API error response including error codes
  * and validation messages.
  */
-class ErrorResponseException extends Exception
+class ErrorResponseException extends Ready2OrderException
 {
     /** @var null|array The full API error response data */
     protected ?array $data = null;

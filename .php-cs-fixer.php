@@ -42,5 +42,4 @@ return (new PhpCsFixer\Config())
         'method_argument_space' => ['on_multiline' => 'ignore'],
         'no_superfluous_elseif' => false,
     ])
-    ->setCacheFile(sys_get_temp_dir() . '/php_cs.cache')
     ->setFinder($finder);
