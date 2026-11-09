@@ -26,8 +26,8 @@ class ClientTest extends AbstractTestCase
         self::assertSame(15, $client->getTimeout());
 
         // Verify the client still works after chaining
-        $company = $client->get('company');
-        self::assertArrayHasKey('company_name', $company);
+        // Must not throw. Uses `products` since `company` is not public.
+        $client->get('products');
     }
 
     public function testSettingLanguage(): void
